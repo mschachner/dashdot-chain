@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Chain rewriting utility for dash-dot syntax.
 
 Chains are sequences consisting of digits, centered bullets ("\u2022"), and
@@ -354,27 +355,38 @@ def interactive_abridged(chain: str) -> None:
 # CLI interface
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) != 3 or sys.argv[1] not in (
-            'step', 'run', 'interactive', 'last',
-            'run_abridged', 'interactive_abridged'):
-        print(
-            "Usage: python chain.py"
-            " [step|run|interactive|last|run_abridged|interactive_abridged] '<chain>'"
-        )
+
+    runners = {
+        'step': None,  # handled specially
+        'run': run_verbose,
+        'interactive': run_interactive,
+        'last': run_last,
+        'run_abridged': run_abridged,
+        'interactive_abridged': interactive_abridged,
+    }
+
+    if len(sys.argv) == 1:
+        print("Available modes:")
+        names = list(runners)
+        for i, name in enumerate(names, 1):
+            print(f"{i}. {name}")
+        choice = input("Choose mode: ").strip()
+        if choice.isdigit() and 1 <= int(choice) <= len(names):
+            mode = names[int(choice) - 1]
+        else:
+            mode = choice
+        raw = input("Enter chain: ").strip()
+    elif len(sys.argv) == 3 and sys.argv[1] in runners:
+        mode, raw = sys.argv[1], sys.argv[2]
+    else:
+        opts = '|'.join(runners.keys())
+        print(f"Usage: python chain.py [{opts}] '<chain>'")
         sys.exit(1)
-    mode, raw = sys.argv[1], sys.argv[2]
+
     chain = _normalize(raw)
     if mode == 'step':
         out = rewrite_step(chain)
         print(out if out else "(no rule applies)")
-    elif mode == 'run':
-        run_verbose(chain)
-    elif mode == 'interactive':
-        run_interactive(chain)
-    elif mode == 'last':
-        run_last(chain)
-    elif mode == 'run_abridged':
-        run_abridged(chain)
     else:
-        interactive_abridged(chain)
+        runners[mode](chain)
 
