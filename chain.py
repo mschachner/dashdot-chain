@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Chain rewriting utility for dash-dot syntax.
 
 Chains are sequences consisting of digits, centered bullets ("\u2022"), and
