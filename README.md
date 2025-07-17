@@ -3,7 +3,7 @@
 This repository contains a small utility for rewriting *dash‑dot* chains. A
 chain is a sequence of digits, centred bullet characters (`•`) and dashes
 (`-`). The `chain.py` module provides a set of rewrite rules and a number of
-runners that demonstrate different ways to apply them.
+runners that apply them.
 
 ## Dash‑dot notation
 
@@ -15,16 +15,17 @@ chain eventually reduces to a single bullet followed by a number, e.g.
 ### Rewrite rules
 
 The rewriting system repeatedly applies the following four rules, always
-choosing the rightmost possible match.  Below ``n`` and ``m`` denote digits.
+choosing the rightmost possible match.  Below ``n`` and ``m`` denote digits, while ``v``
+denotes a _dash-chain_, i.e., a chain of digits separated by dashes.
 
 1. **Rule 1** – ``•0•m → •(m+1)``
    The string ``•0`` can be thought of as the successor function.
 2. **Rule 2** – ``-0• → •``
    Any zeroes at the end of a dash-only chain can be removed.
 3. **Rule 3** – ``•0-…-0-(k+1)-v•n → •n-…-n-k-v•n``
-   The diagonal rule for dashes.
+   The _diagonal rule for dashes._
 4. **Rule 4** – ``•(k+1)-v•n`` is replaced with ``n`` copies of ``•k-v``
-   followed by ``•n``. This is the  diagonal rule for dots.
+   followed by ``•n``. The _diagonal rule for dots._
 
 ## Usage
 
