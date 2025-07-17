@@ -15,6 +15,8 @@ Several runner functions demonstrate different execution modes, including
 """
 
 import re
+import sys
+import select
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Tuple
 
@@ -45,6 +47,45 @@ def _detokenize(tokens: List[str]) -> str:
     return ''.join(tokens)
 
 
+MAX_DIGITS = 100
+
+
+def _safe_int(token: str) -> Optional[int]:
+    """Convert token to int if not excessively large."""
+    if len(token) > MAX_DIGITS:
+        return None
+    try:
+        return int(token)
+    except (ValueError, OverflowError):
+        return None
+
+
+CHAIN_RE = re.compile(r'^[•.]\d+(?:[•-]\d+)*$')
+
+
+def is_valid_chain(chain: str) -> bool:
+    """Check whether the given chain has valid syntax."""
+    return bool(CHAIN_RE.fullmatch(_normalize(chain)))
+
+
+def _escape_pressed() -> bool:
+    """Return True if the user pressed the Escape key."""
+    try:
+        import msvcrt
+        if msvcrt.kbhit():
+            ch = msvcrt.getch()
+            return ch == b'\x1b'
+    except ImportError:
+        pass
+    if not sys.stdin.isatty():
+        return False
+    dr, _, _ = select.select([sys.stdin], [], [], 0)
+    if dr:
+        ch = sys.stdin.readline().strip()
+        return ch == '\x1b'
+    return False
+
+
 def _rule1(tokens: List[str]) -> List[RewriteMatch]:
     """Match Rule 1: ``•0•m → •(m+1)``."""
     n = len(tokens)
@@ -56,7 +97,9 @@ def _rule1(tokens: List[str]) -> List[RewriteMatch]:
             and tokens[i + 2] == '•'
             and tokens[i + 3].isdigit()
         ):
-            m_val = int(tokens[i + 3])
+            m_val = _safe_int(tokens[i + 3])
+            if m_val is None:
+                continue
             new = tokens[:i] + ['•', str(m_val + 1)] + tokens[i + 4:]
             matches.append(RewriteMatch(i, 1, new))
     return matches
@@ -99,11 +142,15 @@ def _rule3(tokens: List[str]) -> List[RewriteMatch]:
                 continue
             if idx_inner >= len(inner) or not inner[idx_inner].isdigit():
                 continue
-            kp1 = int(inner[idx_inner])
+            kp1 = _safe_int(inner[idx_inner])
+            if kp1 is None:
+                continue
             k = kp1 - 1
             if j + 1 >= n or not tokens[j + 1].isdigit():
                 continue
-            n_val = int(tokens[j + 1])
+            n_val = _safe_int(tokens[j + 1])
+            if n_val is None:
+                continue
             v_tokens = inner[idx_inner + 1 :]
             valid_v = True
             for t in range(0, len(v_tokens), 2):
@@ -129,14 +176,19 @@ def _rule4(tokens: List[str]) -> List[RewriteMatch]:
     matches: List[RewriteMatch] = []
     for i in range(n - 2):
         if tokens[i] == '•' and tokens[i + 1].isdigit():
-            k = int(tokens[i + 1]) - 1
+            k_val = _safe_int(tokens[i + 1])
+            if k_val is None:
+                continue
+            k = k_val - 1
             j = i + 2
             v_tokens: List[str] = []
             while j + 1 < n and tokens[j] == '-' and tokens[j + 1].isdigit():
                 v_tokens += [tokens[j], tokens[j + 1]]
                 j += 2
             if j < n and tokens[j] == '•' and tokens[j + 1].isdigit():
-                n_copies = int(tokens[j + 1])
+                n_copies = _safe_int(tokens[j + 1])
+                if n_copies is None:
+                    continue
                 rep: List[str] = []
                 for _ in range(n_copies):
                     rep += ['•', str(k)] + v_tokens
@@ -171,6 +223,9 @@ def run_verbose(chain: str) -> None:
     print(cur)
     steps = 0
     while True:
+        if _escape_pressed():
+            print("Escape pressed, exiting.")
+            break
         nxt = rewrite_step(cur)
         if nxt is None:
             break
@@ -185,6 +240,9 @@ def run_last(chain: str) -> None:
     cur = chain
     steps = 0
     while True:
+        if _escape_pressed():
+            print("Escape pressed, exiting.")
+            return
         nxt = rewrite_step(cur)
         if nxt is None:
             print(cur)
@@ -200,10 +258,16 @@ def run_interactive(chain: str) -> None:
     print(cur)
     steps = 0
     while True:
+        if _escape_pressed():
+            print("Escape pressed, exiting.")
+            break
         nxt = rewrite_step(cur)
         if nxt is None:
             break
-        input()
+        resp = input()
+        if resp == '\x1b':
+            print("Escape pressed, exiting.")
+            break
         print(nxt)
         steps += 1
         cur = nxt
@@ -219,6 +283,9 @@ def run_abridged(chain: str) -> None:
     steps = 0
     local_cache: Dict[str, Tuple[str, int]] = {}
     while True:
+        if _escape_pressed():
+            print("Escape pressed, exiting.")
+            break
         old = cur
         tokens = _tokenize(cur)
         # trailing zeros
@@ -228,7 +295,9 @@ def run_abridged(chain: str) -> None:
             m += 1
             idx -= 2
         if m >= 5 and idx >= 0 and tokens[idx] == '•' and tokens[-1].isdigit():
-            n_val = int(tokens[-1])
+            n_val = _safe_int(tokens[-1])
+            if n_val is None:
+                break
             new_chain = ''.join(tokens[:idx] + ['•', str(n_val + m)])
             local_cache[old] = (new_chain, m)
             print(f"({m} lines omitted)")
@@ -239,7 +308,9 @@ def run_abridged(chain: str) -> None:
         # suffix •1•n skip
         if (len(tokens) >= 4 and tokens[-4] == '•' and tokens[-3] == '1' and
                 tokens[-2] == '•' and tokens[-1].isdigit()):
-            n_val = int(tokens[-1])
+            n_val = _safe_int(tokens[-1])
+            if n_val is None:
+                break
             skip = n_val + 1
             if skip >= 5:
                 new_chain = ''.join(tokens[:-4] + ['•', str(2 * n_val)])
@@ -252,7 +323,9 @@ def run_abridged(chain: str) -> None:
         # suffix •2•n skip (n*2^n + 1)
         if (len(tokens) >= 4 and tokens[-4] == '•' and tokens[-3] == '2' and
                 tokens[-2] == '•' and tokens[-1].isdigit()):
-            n_val = int(tokens[-1])
+            n_val = _safe_int(tokens[-1])
+            if n_val is None:
+                break
             skip = n_val * (2 ** n_val) + 1
             if skip >= 5:
                 result_val = n_val * (2 ** n_val)
@@ -290,6 +363,9 @@ def interactive_abridged(chain: str) -> None:
     steps = 0
     local_cache: Dict[str, Tuple[str, int]] = {}
     while True:
+        if _escape_pressed():
+            print("Escape pressed, exiting.")
+            break
         old = cur
         tokens = _tokenize(cur)
         # trailing zeros
@@ -299,7 +375,9 @@ def interactive_abridged(chain: str) -> None:
             m += 1
             idx -= 2
         if m >= 5 and idx >= 0 and tokens[idx] == '•' and tokens[-1].isdigit():
-            n_val = int(tokens[-1])
+            n_val = _safe_int(tokens[-1])
+            if n_val is None:
+                break
             new_chain = ''.join(tokens[:idx] + ['•', str(n_val + m)])
             local_cache[old] = (new_chain, m)
             print(f"({m} lines omitted)")
@@ -310,7 +388,9 @@ def interactive_abridged(chain: str) -> None:
         # suffix •1•n
         if (len(tokens) >= 4 and tokens[-4] == '•' and tokens[-3] == '1' and
                 tokens[-2] == '•' and tokens[-1].isdigit()):
-            n_val = int(tokens[-1])
+            n_val = _safe_int(tokens[-1])
+            if n_val is None:
+                break
             skip = n_val + 1
             if skip >= 5:
                 new_chain = ''.join(tokens[:-4] + ['•', str(2 * n_val)])
@@ -323,7 +403,9 @@ def interactive_abridged(chain: str) -> None:
         # suffix •2•n
         if (len(tokens) >= 4 and tokens[-4] == '•' and tokens[-3] == '2' and
                 tokens[-2] == '•' and tokens[-1].isdigit()):
-            n_val = int(tokens[-1])
+            n_val = _safe_int(tokens[-1])
+            if n_val is None:
+                break
             skip = n_val * (2 ** n_val) + 1
             if skip >= 5:
                 result_val = n_val * (2 ** n_val)
@@ -346,7 +428,10 @@ def interactive_abridged(chain: str) -> None:
         nxt = rewrite_step(cur)
         if nxt is None:
             break
-        input()
+        resp = input()
+        if resp == '\x1b':
+            print("Escape pressed, exiting.")
+            break
         print(nxt)
         steps += 1
         cur = nxt
@@ -370,12 +455,17 @@ if __name__ == '__main__':
         names = list(runners)
         for i, name in enumerate(names, 1):
             print(f"{i}. {name}")
-        choice = input("Choose mode: ").strip()
-        if choice.isdigit() and 1 <= int(choice) <= len(names):
-            mode = names[int(choice) - 1]
-        else:
-            mode = choice
-        raw = input("Enter chain: ").strip()
+        while True:
+            choice = input("Choose mode: ").strip()
+            if choice.isdigit() and 1 <= int(choice) <= len(names):
+                mode = names[int(choice) - 1]
+                break
+            print("Invalid choice, try again.")
+        while True:
+            raw = input("Enter chain: ").strip()
+            if is_valid_chain(raw):
+                break
+            print("Invalid chain, try again.")
     elif len(sys.argv) == 3 and sys.argv[1] in runners:
         mode, raw = sys.argv[1], sys.argv[2]
     else:
