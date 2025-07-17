@@ -27,6 +27,16 @@ denotes a _dash-chain_, i.e., a chain of digits separated by dashes.
 4. **Rule 4** – ``•(k+1)-v•n`` is replaced with ``n`` copies of ``•k-v``
    followed by ``•n``. The _diagonal rule for dots._
 
+### Magnitude
+
+Dash-dot chains model a sort of fast-growing hierarchy of functions. In particular:
+- The chain ``•0•n`` reduces to ``•(n+1)``;
+- The chain ``•1•n`` reduces to ``•2n``;
+- The chain ``•2•n`` reduces to ``•(n*2^n)``;
+- etc.
+  
+The chain ``•0-1•n`` reduces by design to ``•n•n`` and thus has growth on the order of the Ackermann function.
+
 ## Usage
 
 The module can be executed directly with a mode and an initial chain:
