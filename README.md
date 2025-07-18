@@ -36,7 +36,8 @@ Dash-dot chains model a sort of fast-growing hierarchy of functions. In particul
 - etc.
 
 Even the small chain ``•3•3`` reduces to $\bullet 402653184 \times 2^{402653184}$, a number with over 120 million decimal digits.
-The chain ``•0-1•n`` reduces by design to ``•n•n`` and thus has growth on the order of the Ackermann function.
+
+Introducing dashes leads to even more rapid growth; the chain ``•0-1•n`` reduces by design to ``•n•n`` and thus has growth on the order of the Ackermann function.
 
 ## Usage
 
