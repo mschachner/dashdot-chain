@@ -15,15 +15,15 @@ chain eventually reduces to a single bullet followed by a number, e.g.
 ### Rewrite rules
 
 The rewriting system repeatedly applies the following four rules, always
-choosing the rightmost possible match.  Below ``n`` and ``m`` denote digits, while ``v``
-denotes a _dash-chain_, i.e., a chain of digits separated by dashes.
+choosing the rightmost possible match.  Below ``n`` and ``k`` denote numbers, while ``v``
+denotes a _dash-chain_, i.e., a chain of numbers separated by dashes.
 
-1. **Rule 1** – ``•0•m → •(m+1)``
+1. **Rule 1** – ``•0•n → •(n+1)``
    The string ``•0`` can be thought of as the successor function.
 2. **Rule 2** – ``-0• → •``
-   Any zeroes at the end of a dash-only chain can be removed.
+   Any zeroes at the end of a dash-chain can be removed.
 3. **Rule 3** – ``•0-…-0-(k+1)-v•n → •n-…-n-k-v•n``
-   The _diagonal rule for dashes._
+    where the number of copies of $n$ is the same as the number of copies of 0 in the original chain. This is the _diagonal rule for dashes._
 4. **Rule 4** – ``•(k+1)-v•n`` is replaced with ``n`` copies of ``•k-v``
    followed by ``•n``. The _diagonal rule for dots._
 
